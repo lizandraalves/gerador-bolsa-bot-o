@@ -25,6 +25,10 @@
       --muted: #7a7060;
       --panel: #ede8dc;
       --white: #ffffff;
+      --green: #2a7a4a;
+      --green-bg: #e8f5ee;
+      --orange: #b85c00;
+      --orange-bg: #fff3e0;
     }
 
     body {
@@ -229,11 +233,85 @@
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.08em;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     .info-bar span b {
       color: var(--ink);
       font-weight: 500;
+    }
+
+    /* ── BADGE DE MATRIZ ──────────────────────────────────────────────────────── */
+    .matriz-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 2px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 1.5px solid;
+      transition: all 0.2s;
+    }
+
+    .matriz-badge.found {
+      background: var(--green-bg);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .matriz-badge.not-found {
+      background: var(--orange-bg);
+      border-color: var(--orange);
+      color: var(--orange);
+    }
+
+    /* ── PAINEL DE MATRIZ NA SIDEBAR ──────────────────────────────────────────── */
+    .matriz-panel {
+      border: 2px solid var(--ink);
+      background: var(--white);
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .matriz-panel .mat-label {
+      font-size: 0.55rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    .matriz-panel .mat-value {
+      font-family: 'Fraunces', serif;
+      font-size: 1.6rem;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--ink);
+      transition: color 0.2s;
+    }
+
+    .matriz-panel .mat-value.nova {
+      font-size: 1rem;
+      color: var(--orange);
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+    }
+
+    .matriz-panel .mat-sub {
+      font-size: 0.6rem;
+      color: var(--muted);
+    }
+
+    /* Destaque no painel quando duplicata */
+    .matriz-panel .mat-dupe {
+      font-size: 0.58rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
     }
 
     /* ── PDF / PRINT ─────────────────────────────────────────────────────── */
@@ -299,6 +377,13 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- PAINEL DE MATRIZ -->
+      <div class="matriz-panel" id="matriz-panel">
+        <div class="mat-label">Número da Matriz</div>
+        <div class="mat-value" id="mat-value">—</div>
+        <div class="mat-sub" id="mat-sub">Informe largura e altura</div>
       </div>
 
       <div class="divider"></div>
@@ -371,6 +456,7 @@
         <div class="toggle-group">
           <label class="toggle"><input type="checkbox" id="show-cotas" checked> Cotas</label>
           <label class="toggle"><input type="checkbox" id="show-info" checked> Bloco de informações</label>
+          <label class="toggle"><input type="checkbox" id="show-matriz" checked> Número da matriz</label>
         </div>
       </div>
 
@@ -390,6 +476,110 @@
   </div>
 
   <script>
+    // ─── TABELA DE MATRIZES (gerada da planilha) ──────────────────────────────────
+    // Chave: "LARGURAxALTURA" (uppercase, vírgula→ponto)
+    // Quando há duplicata de tamanho, guarda TODOS os números separados por " / "
+    const MATRIZES_RAW = [
+      ["1","24X30"],["2","35X20"],["3","28X50"],["4","15X26"],["5B","24X47"],
+      ["6B","16X25"],["7B","16X20"],["8","34X19"],["9","25X16"],["10","40X35"],
+      ["11","27X35"],["12","24X40"],["13","47X30"],["14","12X35"],["15","17X23.5"],
+      ["16","24X16"],["17","30X17"],["18","45X40"],["19","14.5X25"],["20","24X22"],
+      ["21","43X36"],["22","40X19"],["23","24X17"],["24","47X34"],["25","43X36"],
+      ["26","17X16"],["27","45X40"],["28","22X23"],["29","35X45"],["30","15X30"],
+      ["31","20X15"],["32","15X35"],["33","27X27"],["34","28X28"],["35","23X28"],
+      ["36","14X15.5"],["37","28X22"],["38","22X16"],["39","38X45"],["40","2.5X17.5"],
+      ["41","13X14.5"],["42","36X36"],["43","24X24"],["44","14X38"],["45","40X40"],
+      ["46","18X35"],["47","17X13.5"],["48","19X16"],["49","28X52"],["50","30X20"],
+      ["51","17X17"],["52","16X16"],["53","14X14"],["54","25X47"],["55","18X27"],
+      ["56","20X34"],["57","20X36"],["58","25X17"],["59","8X10"],["60","32X40"],
+      ["61","12X15"],["62","22X27"],["63","37X51"],["64","58X25"],["65","45X30"],
+      ["66","13X20"],["67","14X22"],["68","22X32"],["69","34X40"],["70","38X22"],
+      ["71","20X38"],["72","22X43"],["73","19X9"],["74","27X45"],["75","23X17"],
+      ["76","8X13"],["77","30X26"],["78","24X36"],["79","17X32"],["80","16X26"],
+      ["81","16X32"],["82","45X25"],["83","35X27"],["84","17X38"],["85","25X45"],
+      ["86","36X51"],["87","52X30"],["88","30X52"],["89","30X38"],["90","34X49"],
+      ["91","22X42"],["92","37X21"],["93","22X38"],["94","20X24"],["95","25X29"],
+      ["96","23X40"],["97","23X48"],["98","35X40"],["99","36X36"],["100","28X35"],
+      ["101","13X13"],["102","16X13"],["103","16X28"],["104","17X35"],["105","18X38"],
+      ["106","18X14"],["107","18X18"],["108","24X44"],["109","20X12"],["110","20X22"],
+      ["111","20X25"],["112","20X40"],["113","20.5X23.5"],["114","22X18"],["115","22X22"],
+      ["116","22X24"],["117","22X40"],["118","33X26"],["119","23X12.5"],["120","24X18"],
+      ["121","25X42"],["122","37X28"],["123","38X18"],["124","36X26"],["125","11X18"],
+      ["126","20X30"],["127","20X14"],["128","18X20"],["129","30X40"],["130","22.5X14"],
+      ["131","8X13"],["132","34X46"],["133","13X33"],["134","18X24"],["135","3.5X9"],
+      ["136","22X45"],["137","23X14"],["138RC","30X26"],["139","17X16"],["140","21X14"],
+      ["141","11X23"],["142","19X38"],["143","42.5X33"],["144","39X30"],["145","16X19"],
+      ["146","28X30"],["147","25X35"],["148","7X10"],["149","27X42"],["150","45X50"],
+      ["151","40X30"],["152","20X20"],["153","40X45"],["154","24X26"],["155","25X20"],
+      ["156","22X20"],["157","29X20"],["158","25X18"],["159","18X40"],["160","26X22"],
+      ["161","16X24"],["162","43X30"],["163","20X45"],["164","38X26"],["165","26X16"],
+      ["166","18X15"],["167","26X24"],["168","29X42"],["169","17X30"],["170","36X30"],
+      ["171","38X17"],["172","43X20"],["173RC","40X35"],["174","38X26"],["175","27X16"],
+      ["176","33X26"],["177","29X45"],["178","30X48"],["179","24X39"],["180","26X43"],
+      ["181","20X17"],["182","21X21"],["183","18X16"],["184","30X20"],["185","15X20"],
+      ["186","15X15"],["187","24X14.5"],["188","25X25"],["189","30X30"],["190","28X25"],
+      ["191","28X45"],["192","30X22"],["193","25X33"],["194","29X16"],["195","30X35"],
+      ["196","14X20"],["197","13X23"],["198","26X14"],["199","42X30"],
+      ["001/1","27X14"],["002/1","22X26"],["003/1","37X40"],["004/1","30X36"],
+      ["006/1","33X18"],["007/1","50X32"]
+    ];
+
+    // Monta lookup: tamanho → array de números (pode ter duplicatas)
+    const MATRIZES = {};
+    for (const [num, tam] of MATRIZES_RAW) {
+      if (!MATRIZES[tam]) MATRIZES[tam] = [];
+      if (!MATRIZES[tam].includes(num)) MATRIZES[tam].push(num);
+    }
+
+    // Normaliza input do usuário para a chave do lookup
+    function normalizeKey(L, H) {
+      // Formata número: remove .0 desnecessário, substitui vírgula por ponto
+      const fmt = v => {
+        let s = parseFloat(v).toString().replace(',', '.');
+        return s;
+      };
+      return `${fmt(L)}X${fmt(H)}`;
+    }
+
+    // Busca matriz — tenta LxH e HxL
+    function buscarMatriz(L, H) {
+      const k1 = normalizeKey(L, H);
+      const k2 = normalizeKey(H, L);
+      if (MATRIZES[k1]) return { nums: MATRIZES[k1], chave: k1, invertida: false };
+      if (MATRIZES[k2]) return { nums: MATRIZES[k2], chave: k2, invertida: true };
+      return null;
+    }
+
+    // Atualiza painel lateral de matriz
+    function atualizarPainelMatriz(L, H) {
+      const res = buscarMatriz(L, H);
+      const valEl = document.getElementById('mat-value');
+      const subEl = document.getElementById('mat-sub');
+
+      if (!L || !H) {
+        valEl.textContent = '—';
+        valEl.className = 'mat-value';
+        subEl.textContent = 'Informe largura e altura';
+        return null;
+      }
+
+      if (res) {
+        const label = res.nums.join(' / ');
+        valEl.textContent = label;
+        valEl.className = 'mat-value';
+        let sub = `Tamanho ${L}×${H} cm`;
+        if (res.invertida) sub += ` (registrado como ${res.chave.replace('X','×')})`;
+        if (res.nums.length > 1) sub += ` · ${res.nums.length} matrizes`;
+        subEl.textContent = sub;
+        return label;
+      } else {
+        valEl.textContent = 'MATRIZ NOVA';
+        valEl.className = 'mat-value nova';
+        subEl.textContent = `${L}×${H} cm — sem cadastro`;
+        return 'MATRIZ NOVA';
+      }
+    }
+
     // ─── ESCALA ──────────────────────────────────────────────────────────────────
     const PX = 28;       // pixels por centímetro
     const MAR = 70;       // margem ao redor do desenho
@@ -398,9 +588,7 @@
     // Constantes visuais para a solda dentilhada
     const TOOTH = 5;   // passo do dente em px
     const SOLD_W = 8;   // largura da faixa de solda em px (perpendicular à borda)
-    const SW = 1.0; // stroke-width dos dentes
-
-
+    const SW = 1.0;    // stroke-width dos dentes
 
     // ─── GERADOR PRINCIPAL ───────────────────────────────────────────────────────
     function gerarSVG() {
@@ -414,6 +602,10 @@
       const cor = document.getElementById('cor').value;
       const showC = document.getElementById('show-cotas').checked;
       const showI = document.getElementById('show-info').checked;
+      const showM = document.getElementById('show-matriz').checked;
+
+      // Atualiza painel lateral e obtém label
+      const matrizLabel = atualizarPainelMatriz(L, H);
 
       // Dimensões em px
       const bW = cm(L);
@@ -426,43 +618,35 @@
       const cotaL = showC ? 70 : 0;
       const cotaB = showC ? 50 : 0;
       const infoH = showI ? 82 : 0;
+      const matrizH = showM ? 36 : 0;
 
       // Origem do corpo (canto superior-esquerdo)
       const ox = MAR + cotaL;
       const oy = MAR + aH + (showC ? 30 : 0);
 
-      // Tamanho total do canvas SVG (em px para o viewBox, em mm para width/height)
-      const cotaT = showC ? 30 : 0; // espaço extra no topo para cota da parte superior da aba
+      // Tamanho total do canvas SVG
+      const cotaT = showC ? 30 : 0;
       const svgW = bW + 2 * MAR + cotaL + (showC ? 50 : 0);
-      const svgH = bH + aH + 2 * MAR + cotaB + infoH + cotaT;
+      const svgH = bH + aH + 2 * MAR + cotaB + infoH + cotaT + matrizH;
 
-      // Conversão para mm: garante que o SVG salvo tenha dimensões físicas corretas
-      // 1 cm = PX pixels, 1 cm = 10 mm  →  1 px = 10/PX mm
       const toMM = v => (v * 10 / PX).toFixed(4);
       const svgWmm = toMM(svgW);
       const svgHmm = toMM(svgH);
 
-      const cx = ox + bW / 2; // centro horizontal
+      const cx = ox + bW / 2;
 
-      // ── Aba: trapézio com lados angulados e chanfros nos cantos do topo
-      //   Base inferior: largura total bW (alinhada com o corpo), em y = oy
-      //   Topo: largura = bW - 2*aRp, em y = oy - aH
-      //   Cantos: chanfro reto diagonal, tamanho proporcional às dimensões da bolsa
-      const aTopW = bW - 2 * aRp;       // largura do topo
-      const aTopXL = ox + aRp;           // topo esquerdo
-      const aTopXR = ox + bW - aRp;      // topo direito
+      const aTopW = bW - 2 * aRp;
+      const aTopXL = ox + aRp;
+      const aTopXR = ox + bW - aRp;
       const aTopY = oy - aH;
 
-      // ── Reforços laterais do corpo (pequeno retângulo ao longo do topo do corpo)
-      const rfH = aH * 0.45;   // altura do reforço = ~metade da aba
-      const rfW = SOLD_W + 4;  // largura do reforço
+      const rfH = aH * 0.45;
+      const rfW = SOLD_W + 4;
 
-      // ─────────────────────────────────────────────────────────────────────────
       let s = `<svg xmlns="http://www.w3.org/2000/svg"
     width="${svgWmm}mm" height="${svgHmm}mm" viewBox="0 0 ${svgW} ${svgH}"
     style="background:#fff; font-family:'DM Mono',monospace;">`;
 
-      // Marcadores de seta para cotas (escondido)
       s += `<defs>
     <marker id="arr" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
       <path d="M0,0 L5,2.5 L0,5 Z" fill="#333"/>
@@ -472,21 +656,16 @@
     </marker>
   </defs>`;
 
-      // ── 1. ABA (TRAPÉZIO COM CHANFROS RETOS NOS CANTOS DO TOPO) ──────────
-      // Base inferior: largura total bW (alinhada com o corpo), em y = oy
-      // Lados: inclinados, subindo diagonalmente até o topo mais estreito
-      // Cantos do topo: chanfro reto diagonal (linha reta — sem curva)
-      // O ângulo do chanfro é determinado pela relação aRp (recuo horizontal) / aH (altura)
+      // ── 1. ABA ──────────────────────────────────────────────────────────────
       const aPath =
-        `M ${ox} ${oy}` +                // base esq (alinhada com corpo)
-        ` L ${aTopXL} ${aTopY}` +        // diagonal esq direto ao canto do topo (chanfro reto)
-        ` L ${aTopXR} ${aTopY}` +        // topo reto
-        ` L ${ox + bW} ${oy}` +          // diagonal dir descendo
-        ` Z`;                             // fecha (base)
+        `M ${ox} ${oy}` +
+        ` L ${aTopXL} ${aTopY}` +
+        ` L ${aTopXR} ${aTopY}` +
+        ` L ${ox + bW} ${oy}` +
+        ` Z`;
 
       s += `<path d="${aPath}" fill="none" stroke="#1a1a1a" stroke-width="1.3"/>`;
 
-      // Furo do botão NA ABA (centrado, a ~40% da altura da aba a partir do topo)
       const f1y = aTopY + aH * 0.42;
       s += `<circle cx="${cx}" cy="${f1y}" r="${fR}" fill="none" stroke="#1a1a1a" stroke-width="1.2"/>`;
 
@@ -494,42 +673,32 @@
       s += `<rect x="${ox}" y="${oy}" width="${bW}" height="${bH}"
     fill="none" stroke="#1a1a1a" stroke-width="1.5"/>`;
 
-      // Furo do botão NO CORPO (centrado, ~1.5cm abaixo da dobra)
       const f2y = oy + Math.max(fR * 2.5, cm(1.0));
       s += `<circle cx="${cx}" cy="${f2y}" r="${fR}" fill="none" stroke="#1a1a1a" stroke-width="1.2"/>`;
 
       // ── 3. SOLDA DENTILHADA ─────────────────────────────────────────────────
-      // Borda ESQUERDA do corpo
       s += soldaVertical(ox, oy, bH, 'left');
-      // Borda DIREITA do corpo
       s += soldaVertical(ox + bW, oy, bH, 'right');
-      // Borda INFERIOR do corpo
       s += soldaHorizontal(ox, oy + bH, bW, 'bottom');
 
       // ── 4. REFORÇOS LATERAIS ────────────────────────────────────────────────
-      // Retângulo interno em cada lateral, no topo do corpo (dentro do contorno)
-      // Esquerdo: começa na borda esquerda e vai para dentro
       s += `<rect x="${ox}" y="${oy}" width="${rfW - 1}" height="${rfH}"
     fill="none" stroke="#1a1a1a" stroke-width="1"/>`;
-      // Direito: termina na borda direita e vai para dentro
       s += `<rect x="${ox + bW - rfW + 1}" y="${oy}" width="${rfW - 1}" height="${rfH}"
     fill="none" stroke="#1a1a1a" stroke-width="1"/>`;
 
-      // Linha horizontal dentro do reforço (detalhe)
       const rfMidY = oy + rfH * 0.45;
       s += `<line x1="${ox}" y1="${rfMidY}" x2="${ox + rfW - 1}" y2="${rfMidY}"
     stroke="#1a1a1a" stroke-width="0.8"/>`;
       s += `<line x1="${ox + bW - rfW + 1}" y1="${rfMidY}" x2="${ox + bW}" y2="${rfMidY}"
     stroke="#1a1a1a" stroke-width="0.8"/>`;
 
-      // ── Cota do comprimento da lateral da aba — linha paralela à diagonal, texto horizontal ──
-      // Vetor da diagonal esquerda: de (ox, oy) → (aTopXL, aTopY)
+      // ── Cota diagonal da aba ─────────────────────────────────────────────────
       const dxL = aTopXL - ox;
       const dyL = aTopY - oy;
       const diagLen = Math.sqrt(dxL * dxL + dyL * dyL);
-      const diagCm = (diagLen / PX).toFixed(1); // comprimento real em cm
-      // Vetor unitário perpendicular (para fora da bolsa, lado esquerdo)
-      const perpX = dyL / diagLen;   // aponta para esquerda/fora
+      const diagCm = (diagLen / PX).toFixed(1);
+      const perpX = dyL / diagLen;
       const perpY = -dxL / diagLen;
       const cotaOffset = 14;
       const cd_x1 = ox + perpX * cotaOffset;
@@ -541,20 +710,14 @@
       const tkLen = 5;
       const tk_dx = perpX * tkLen;
       const tk_dy = perpY * tkLen;
-      // textRot = 0 → texto horizontal igual às demais cotas
       s += cotaDiagonal(cd_x1, cd_y1, cd_x2, cd_y2, cd_mx, cd_my, 0, tk_dx, tk_dy, `${diagCm} cm`, '#1a1a1a');
 
       // ── 5. COTAS ────────────────────────────────────────────────────────────
       if (showC) {
-        // Cota largura total (abaixo do corpo)
         s += cotaHoriz(ox, ox + bW, oy + bH + 35, `${L} cm`);
-        // Cota largura do topo da aba (acima da aba)
         s += cotaHoriz(aTopXL, aTopXR, aTopY - 20, `${abaR > 0 ? (L - 2 * abaR).toFixed(1) : L} cm`, '#1a1a1a', 8.5);
-        // Cota altura do corpo (à esquerda)
         s += cotaVert(oy, oy + bH, ox - 45, `${H} cm`);
-        // Cota altura da aba (à direita)
         s += cotaVert(aTopY, oy, ox + bW + 32, `${abaH} cm`, '#1a1a1a', 8.5);
-        // Cota altura total (mais à esquerda)
         s += cotaVert(aTopY, oy + bH, ox - 68, `${H + abaH} cm`, '#1a1a1a', 9.5, true);
       }
 
@@ -582,6 +745,33 @@
         s += cel(ox + sep, iy + 46, 'ALTURA ABA', `${abaH} cm`);
       }
 
+      // ── 7. BLOCO DE MATRIZ ──────────────────────────────────────────────────
+      if (showM && matrizLabel) {
+        const infoOffset = showI ? 82 : 0;
+        const cotaOffset2 = showC ? 56 : 14;
+        const my = oy + bH + (showI ? cotaOffset2 + infoOffset + 6 : (showC ? cotaOffset2 : 14));
+        const mH = 28;
+        const isNova = matrizLabel === 'MATRIZ NOVA';
+        const mBg = isNova ? '#fff3e0' : '#e8f5ee';
+        const mStroke = isNova ? '#b85c00' : '#2a7a4a';
+        const mTextColor = isNova ? '#b85c00' : '#2a7a4a';
+
+        s += `<rect x="${ox}" y="${my}" width="${bW}" height="${mH}"
+      fill="${mBg}" stroke="${mStroke}" stroke-width="1.2"/>`;
+        s += `<text x="${ox + 8}" y="${my + 10}" font-size="7" fill="${mStroke}" letter-spacing="0.1em">NÚMERO DA MATRIZ</text>`;
+        s += `<text x="${ox + 8}" y="${my + 22}" font-size="13" fill="${mTextColor}" font-weight="600" letter-spacing="0.04em">${matrizLabel}</text>`;
+
+        // Ícone / símbolo à direita
+        const iconX = ox + bW - 20;
+        const iconY = my + 14;
+        if (!isNova) {
+          s += `<circle cx="${iconX}" cy="${iconY}" r="7" fill="none" stroke="${mStroke}" stroke-width="1"/>`;
+          s += `<text x="${iconX}" y="${iconY + 4}" text-anchor="middle" font-size="9" fill="${mStroke}">✓</text>`;
+        } else {
+          s += `<text x="${iconX}" y="${iconY + 4}" text-anchor="middle" font-size="11" fill="${mStroke}">★</text>`;
+        }
+      }
+
       // Título
       s += `<text x="${ox}" y="${MAR * 0.42}"
     font-size="10" fill="#7a7060" letter-spacing="0.08em">FICHA TÉCNICA — BOLSA BOTÃO PVC</text>`;
@@ -590,25 +780,28 @@
 
       document.getElementById('svg-container').innerHTML = s;
 
+      // Info bar
+      const matBadge = matrizLabel
+        ? `<span class="matriz-badge ${matrizLabel === 'MATRIZ NOVA' ? 'not-found' : 'found'}">
+            Matriz: <b>${matrizLabel}</b>
+           </span>`
+        : '';
+
       document.getElementById('info-bar').innerHTML =
         `<span>Largura: <b>${L} cm</b></span>
      <span>Altura: <b>${H} cm</b></span>
      <span>Aba: <b>${abaH} cm</b></span>
      <span>Total: <b>${H + abaH} cm</b></span>
-     <span>Furo botão: <b>∅ ${furo} cm</b></span>`;
+     <span>Furo botão: <b>∅ ${furo} cm</b></span>
+     ${matBadge}`;
     }
 
     // ─── SOLDA DENTILHADA ────────────────────────────────────────────────────────
-    // Vertical: x fixo, percorre de y0 até y0+len
     function soldaVertical(x, y0, len, side) {
-      const dir = side === 'left' ? 1 : -1; // dente para dentro
-      const xi = x + dir * SOLD_W;         // posição da linha interna
+      const dir = side === 'left' ? 1 : -1;
+      const xi = x + dir * SOLD_W;
       let d = '';
-
-      // Linha interna paralela (segunda linha da solda)
       d += `<line x1="${xi}" y1="${y0}" x2="${xi}" y2="${y0 + len}" stroke="#1a1a1a" stroke-width="${SW}"/>`;
-
-      // Dentes (traços perpendiculares à borda)
       const n = Math.ceil(len / TOOTH);
       for (let i = 0; i <= n; i++) {
         const ty = y0 + i * TOOTH;
@@ -619,14 +812,11 @@
       return d;
     }
 
-    // Horizontal: y fixo, percorre de x0 até x0+len
     function soldaHorizontal(x0, y, len, side) {
-      const dir = side === 'bottom' ? -1 : 1; // dente para dentro
+      const dir = side === 'bottom' ? -1 : 1;
       const yi = y + dir * SOLD_W;
       let d = '';
-
       d += `<line x1="${x0}" y1="${yi}" x2="${x0 + len}" y2="${yi}" stroke="#1a1a1a" stroke-width="${SW}"/>`;
-
       const n = Math.ceil(len / TOOTH);
       for (let i = 0; i <= n; i++) {
         const tx = x0 + i * TOOTH;
@@ -638,7 +828,7 @@
     }
 
     // ─── COTAS ───────────────────────────────────────────────────────────────────
-    const TK = 5; // tamanho do tick
+    const TK = 5;
 
     function cotaHoriz(x1, x2, y, label, color = '#333', fs = 9.5, bold = true) {
       const mx = (x1 + x2) / 2;
@@ -664,7 +854,6 @@
       font-weight="${bold ? '500' : '400'}">${label}</text>`;
     }
 
-    // Cota ao longo de uma linha diagonal com setas e label rotacionado no meio
     function cotaDiagonal(x1, y1, x2, y2, mx, my, rot, tk_dx, tk_dy, label, color = '#333', fs = 9.5) {
       return `
     <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="0.85"
@@ -702,22 +891,16 @@
 
       try {
         const { jsPDF } = window.jspdf;
-
-        // Dimensões em px do viewBox
         const vb = svgEl.viewBox.baseVal;
         const pxW = vb.width;
         const pxH = vb.height;
-
-        // Dimensões físicas em mm (atributos width/height do SVG já estão em mm)
         const wMM = parseFloat(svgEl.getAttribute('width'));
         const hMM = parseFloat(svgEl.getAttribute('height'));
 
-        // Serializa o SVG para uma string e cria Blob URL
         const svgData = new XMLSerializer().serializeToString(svgEl);
         const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
         const url = URL.createObjectURL(svgBlob);
 
-        // Renderiza numa canvas em alta resolução (2x para nitidez)
         const scale = 2;
         const canvas = document.createElement('canvas');
         canvas.width = pxW * scale;
@@ -734,8 +917,6 @@
         URL.revokeObjectURL(url);
 
         const imgData = canvas.toDataURL('image/png');
-
-        // Cria PDF com exatamente o tamanho físico do SVG
         const orientation = wMM > hMM ? 'landscape' : 'portrait';
         const pdf = new jsPDF({ orientation, unit: 'mm', format: [wMM, hMM] });
         pdf.addImage(imgData, 'PNG', 0, 0, wMM, hMM);
